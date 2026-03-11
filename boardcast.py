@@ -20,8 +20,9 @@ deepseek_client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url="https://api.deepsee
 
 # 你的播客 RSS 订阅源字典 (可以随意增减)
 RSS_FEEDS = {
-    "高盛宏观 Exchanges": "https://feeds.megaphone.fm/GLD9322922848",
-    # "NPR Planet Money": "https://feeds.npr.org/510289/podcast.xml",
+    "GS The Markets": "https://feeds.megaphone.fm/GLD9322922848",
+    "FT News Briefing": "https://feeds.acast.com/public/shows/ftnewsbriefing",
+    "GS The Exchanges":"https://feeds.megaphone.fm/GLD9218176758"
 }
 
 # 历史记录文件路径
@@ -82,7 +83,7 @@ def analyze_transcript(transcript, podcast_name, title):
     print("  🧠 正在调用 DeepSeek 进行 A 股映射分析...")
     
     prompt = f"""
-    请阅读以下这集名为《{title}》（来源：{podcast_name}）的英文播客逐字稿，完成以下两部分深度的结构化分析。输出请全部使用中文，排版清晰：
+      请阅读以下这集名为《{title}》（来源：{podcast_name}）的英文播客逐字稿，完成以下两部分深度的结构化分析。输出请全部使用中文，排版清晰：
     
     ## 第一部分：原汁原味的播客核心精炼 (Podcast Highlights)
     1. **执行摘要 (Executive Summary)**：用200字左右精准总结这集播客最核心的叙事、逻辑与结论。
@@ -90,10 +91,10 @@ def analyze_transcript(transcript, podcast_name, title):
     3. **关键数据与专有名词**：列出提到的关键经济数据、专业金融术语或重要机构，并附带简短解释。
 
     ## 第二部分：A股市场映射与策略推演 (A-Share Market Impact Analysis)
-    基于上述播客中提到的海外宏观变量（如政策预期、美债、大宗商品、地缘等），运用宏观对冲与量化思维，推演其对中国A股市场的潜在影响：
+    基于上述播客中提到的海外宏观变量（如政策预期、美债、大宗商品、地缘等），运用宏观对冲与量化思维，推演其对中国A股市场的潜在影响（尽量在150字以内，简洁明了）：
     1. **大盘情绪与流动性**：外围变化将如何通过汇率、利差、外资偏好或全球风险偏好，传导至A股的整体流动性和估值中枢？
-    2. **行业与板块映射 (Sector Impact)**：明确指出哪些A股行业板块可能因此**受益（利多）**，哪些可能**受损（利空）**，并简述传导逻辑。
-    3. **量化监控建议**：为了验证上述推演逻辑，建议在国内市场或跨市场交易中，紧盯哪几个具体的量化宏观指标或高频数据？
+    2. **行业与板块映射 (Sector Impact)**：明确指出哪些A股行业板块可能因此**受益（利多）**，哪些可能**受损（利空）**，并一两句话简述传导逻辑（例如：输入型通胀利多上游资源股，美债收益率走高压制科技成长股等）。
+    3. **量化监控建议**：为了验证上述推演逻辑，建议在国内市场或跨市场交易中，紧盯哪几个具体的量化宏观指标或高频数据？（如果没有关联紧密的，可以不必有）
     
     以下是逐字稿原文：
     {transcript}
