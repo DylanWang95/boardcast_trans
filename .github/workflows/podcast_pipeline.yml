@@ -3,10 +3,14 @@ name: Daily Podcast Analyzer
 on:
   workflow_dispatch: # 允许你随时在网页上手动点击运行测试
   schedule:
-    # 定时任务：每天 UTC 时间 14:00 (美西 PDT 时间早晨 7:00 / 北京时间晚上 22:00) 自动运行
-    # 你可以后续根据需要修改这个 cron 时间
-    - cron: '0 14 * * *' 
-
+    # 🎯 第一波：A股盘前哨 (处理美国昨夜的复盘播客)
+    # 每天 UTC 时间 00:00 运行 (对应北京时间早晨 08:00 / 美西 PDT 下午 17:00)
+    - cron: '0 0 * * *' 
+    
+    # 🎯 第二波：美股盘前哨 (处理美国清晨刚发布的新闻播客)
+    # 每天 UTC 时间 13:00 运行 (对应北京时间晚上 21:00 / 美西 PDT 早晨 06:00)
+    - cron: '0 13 * * *'
+    
 jobs:
   run-analysis:
     runs-on: ubuntu-latest
