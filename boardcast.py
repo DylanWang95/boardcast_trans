@@ -22,8 +22,7 @@ RSS_FEEDS = {
     "GS The Markets": "https://feeds.megaphone.fm/GLD9322922848",
     "WSJ What's News": "https://video-api.wsj.com/podcast/rss/wsj/whats-news",
     "Bloomberg Daybreak": "https://feeds.megaphone.fm/bloombergdaybreakus",
-    "Marketplace Morning": "https://feeds.publicradio.org/public_feeds/marketplace-morning-report/itunes/rss",
-    "NPR Up First":"https://feeds.npr.org/510318/podcast.xml"
+    "Marketplace Morning": "https://feeds.publicradio.org/public_feeds/marketplace-morning-report/itunes/rss"
 }
 
 HISTORY_FILE = "podcast_history.json"
