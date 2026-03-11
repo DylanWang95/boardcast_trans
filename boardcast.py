@@ -21,8 +21,11 @@ deepseek_client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url="https://api.deepsee
 RSS_FEEDS = {
     "GS The Markets": "https://feeds.megaphone.fm/GLD9322922848",
     "WSJ What's News": "https://video-api.wsj.com/podcast/rss/wsj/whats-news",
-    "CNBC Closing Bell": "https://rss.art19.com/cnbc-closing-bell", # 新增的美股复盘
-    "FT News Briefing": "https://sphinx.acast.com/p/acast/s/ftnewsbriefing"
+    "Bloomberg Daybreak": "https://www.omnycontent.com/d/playlist/e73c998e-6e60-432f-8610-ae210140c5b1/d15648c4-cee0-4e99-a5ca-af80014d921d/65ce2954-d8a8-4c66-9f42-af80014d923e/podcast.rss",
+    "Marketplace Morning": "https://feeds.publicradio.org/public_feeds/marketplace-morning-report/itunes/rss",
+    "CNBC Closing Bell": "https://rss.art19.com/cnbc-closing-bell",
+    "FT News Briefing": "https://sphinx.acast.com/p/acast/s/ftnewsbriefing",
+    "NPR Up First":"https://feeds.npr.org/510318/podcast.xml"
 }
 
 HISTORY_FILE = "podcast_history.json"
