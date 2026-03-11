@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import requests
 import feedparser
@@ -30,16 +31,27 @@ RSS_FEEDS = {
 
 HISTORY_FILE = "podcast_history.json"
 REPORTS_DIR = "Daily_Reports"
+TRANSCRIPTS_DIR = "Raw_Transcripts" # 新增：存放原始逐字稿的文件夹
 
 def load_history():
     if os.path.exists(HISTORY_FILE):
-        with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
+        if os.path.getsize(HISTORY_FILE) == 0:
+            return {}
+        try:
+            with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            print("  ⚠️ 警告: history.json 格式错误，已重置为空账本。")
+            return {}
     return {}
 
 def save_history(history):
     with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
         json.dump(history, f, ensure_ascii=False, indent=4)
+
+def sanitize_filename(filename):
+    """清洗文件名，去除不能用于文件命名的特殊符号"""
+    return re.sub(r'[\\/*?:"<>|]', "", filename)
 
 # ==========================================
 # 2. 核心下载与转录
@@ -71,67 +83,73 @@ def get_latest_audio(rss_url, save_path="temp_audio.mp3"):
     return title, save_path, episode_id
 
 def transcribe_audio(audio_path):
-    print("  🎙️ 正在调用 Groq 进行转录...")
+    print("  🎙️ 正在调用 Groq 进行极速转录...")
     with open(audio_path, "rb") as file:
-        return groq_client.audio.transcriptions.create(
+        transcription = groq_client.audio.transcriptions.create(
           file=(audio_path, file.read()),
           model="whisper-large-v3",
           response_format="text",
           language="en" 
         )
+    return transcription
 
 # ==========================================
 # 3. 大模型分析 (区分首次生成与增量更新)
 # ==========================================
-def generate_or_update_report(new_transcripts_dict, existing_md_content, date_str):
-    print("  🧠 正在调用 DeepSeek 进行融合分析...")
+def generate_or_update_report(new_transcripts_dict, existing_md_content, today_str, today_str_compact):
+    print("  🧠 正在调用 DeepSeek 进行多源信息融合与对冲推演...")
     
-    # 将新抓取到的逐字稿拼接
     new_text = ""
     for source, data in new_transcripts_dict.items():
         new_text += f"\n\n### 来源：【{source}】 (节目：{data['title']})\n{data['transcript']}\n"
     
-    # 动态构建 Prompt
     if existing_md_content:
-        print("  🔄 检测到今日已有报告，启动【增量更新】模式...")
+        print("  🔄 检测到今日已有晨报，启动【增量更新】模式...")
         prompt = f"""
         你是精通全球宏观经济与资本市场博弈的首席策略研究员。
         
-        以下是你今天早些时候已经生成的《海外宏观与A股映射简报》：
+        以下是你今天早些时候已经生成的《海外宏观与A股映射晨报》：
         ```markdown
         {existing_md_content}
         ```
         
-        现在市场有了最新的播客更新，以下是新节目的逐字稿：
+        现在市场有了最新的晚间播客更新，以下是新节目的逐字稿：
         ```text
         {new_text}
         ```
         
-        **你的任务是进行“增量更新”，输出一份完整的、全新的 Markdown 报告。必须严格遵守以下原则：**
-        1. **只做加法**：绝对不能删减或大幅改写原有报告中已经存在的信息。
-        2. **标签高亮**：请将新播客提取出的【核心新闻】、【播客速览】无缝追加到相应板块中，并**必须**在新增文字的最前面加上显眼的 `[🌙 晚间新增]` 标签。
-        3. **推演升级**：在最后的【A股及大类资产映射推演】部分，结合新老信息，补充 1-2 条新的跨市场交易逻辑，同样打上 `[🌙 晚间新增]` 标签。
+        **你的任务是进行高精度的“增量融合更新”，输出一份完整的、全新的 Markdown 报告。必须严格遵守以下原则：**
+        
+        1. **信息留存**：绝对保留早间报告中的所有事实和数据，不可随意删减。
+        2. **主线更新 (最重要)**：在【一、关注要点】中，如果新播客对早上的某个主题提供了新的证据、相反的观点或更深度的监管博弈视角，请在原有的“共识与分歧”下方，另起一行补充对比分析，并在此段开头打上 `[🌙 晚间视角追加]` 标签。如果新播客带来了一个全新的重大主题，请作为一个全新的【主题关键词】追加到第一部分末尾。
+        3. **深度提炼追加**：在【二、各播客内容摘要】中，按原定严谨格式，新增晚间播客的深度梳理，并在播客名称旁打上 `[🌙 晚间更新]` 标签。
+        4. **推演迭代**：在【三、市场分析】中，结合晚间新获取的量化数据或逻辑，补充 1-2 条新的市场观点，并在段首打上 `[🌙 晚间推演更新]`。如果没有新的增量信息，不必强行补充。
         """
     else:
         print("  📝 今日首次运行，启动【全局生成】模式...")
         prompt = f"""
-        你是精通全球宏观经济与资本市场博弈的首席策略研究员。请阅读以下今日海外财经播客的逐字稿合集。
+        请阅读以下今日海外财经播客的逐字稿合集。你的任务是进行深度整理和分析，最终输出一份专业、硬核的宏观策略晨报。
 
-        请严格按照以下结构输出 Markdown 格式的报告（全部使用中文，排版专业干练）：
+        请严格按照以下结构输出 Markdown 格式的报告（排版需结构化、层次分明）：
 
-        # 一、今日全球核心主线新闻
-        提取 4-5 个最具市场影响力的头条宏观/政经事件。格式：
-        * **[事件主题关键词]**：客观事实或核心数据 + 深度观点分析。（来源：播客A/播客B） 根据实际情况在来源中增加注释。
+        # 一、关注要点
+        严格根据逐字稿（不要增加额外信息），提取 3-4 个今日最需要关注的市场要点（包括但不限于经济数据、地缘冲突、中美政治局势、金融监管动态等）。针对每个主题，严格采用以下结构进行深度拆解：
+        * **【主题关键词】**
+          * **客观事实/量化数据**：列出逐字稿中支撑该主题的核心客观数据或事件进展。
+          * **共识与分歧**：综合对比不同播客的观点。如果有共识，提炼核心逻辑；如果存在观点分歧，必须明确指出哪家机构/播客持有什么不同看法（例如：关于降息预期，播客A强调通胀粘性，而播客B更看重劳动力市场降温）。（请在括号内明确标注观点来源）。
 
-        # 二、各频道内容速览
-        无序列表，20字极简概括各期节目核心内容。格式：
-        * **【播客名称】《节目名称》**：核心点1；核心点2。
+        # 二、各播客内容摘要
+        摒弃空泛的总结。请对今日抓取的每一个播客进行独立梳理，采用无序列表，提取播客主要内容，这个部分要严格客观，严格基于转录提供的逐字稿来进行总结、分类并归纳。
+        * **【播客名称】《节目名称》**（日期，{today_str_compact}）
+          * **关键词**：[列出3-5个核心关键词]
+          * **关键细节**：如提及的关键经济指标、专有名词、微观博弈现象或英美市场监管动态，逐一列明。
+          * **独特视角**：独特的行业观察或非主流观点。
 
-        # 三、A股及大类资产映射推演
-        基于上述信息的“共振”，推演其对A股市场及大宗商品的潜在影响（100字以内）：
-        1. **流动性与大盘情绪**：外围变量对A股、大宗商品市场整体风险偏好的传导。
-        2. **行业板块推演**：明确指出A股细分板块的利多/利空逻辑。
-        
+        # 三、市场分析
+        基于上述海外信息的共振与分歧，运用宏观对冲思维，推演其对中国 A 股及大宗商品市场的潜在影响（请展开详细的传导逻辑，字数在 300-400 字左右）：
+        1. **流动性与估值中枢**：外围变量（如美元、美债、全球风险偏好）对 A 股及大宗商品整体影响和传导路径。
+        2. **行业板块映射**：明确指出 A 股哪些细分板块或大宗商品品种具备做多/做空逻辑，并说明原因。
+
         以下是逐字稿原文：
         {new_text}
         """
@@ -139,7 +157,7 @@ def generate_or_update_report(new_transcripts_dict, existing_md_content, date_st
     response = deepseek_client.chat.completions.create(
         model="deepseek-chat",
         messages=[
-            {"role": "system", "content": "你是一位机构顶级的宏观与量化策略研究员。必须严格输出完整的 Markdown 格式文本。"},
+            {"role": "system", "content": "你是一位顶级的宏观量化对冲基金经理兼首席策略师。你精通经济金融理论和投资管理实践，能从纷繁的市场噪音中寻找多空资金的博弈逻辑，并且对政治局势、政策变化、行业发展等政策面、产业面、政治面和宏观面的因素都具有极高的敏感度。你的分析极其严谨，绝不生成毫无根据的废话。"},
             {"role": "user", "content": prompt}
         ],
         temperature=0.3
@@ -151,8 +169,13 @@ def generate_or_update_report(new_transcripts_dict, existing_md_content, date_st
 # ==========================================
 if __name__ == "__main__":
     today_str = datetime.now().strftime("%Y-%m-%d")
+    today_str_compact = datetime.now().strftime("%Y%m%d")
+    
+    # 确保保存报告和原始逐字稿的文件夹存在
     os.makedirs(REPORTS_DIR, exist_ok=True)
-    md_filename = os.path.join(REPORTS_DIR, f"{today_str}_海外宏观与A股映射简报.md")
+    os.makedirs(TRANSCRIPTS_DIR, exist_ok=True)
+    
+    md_filename = os.path.join(REPORTS_DIR, f"{today_str}_海外宏观策略晨报.md")
     TEMP_AUDIO_FILE = "temp_episode.mp3"
     
     history = load_history()
@@ -175,7 +198,18 @@ if __name__ == "__main__":
                 
             text_content = transcribe_audio(audio_file)
             new_episodes_data[podcast_name] = {"title": ep_title, "transcript": text_content, "id": episode_id}
-            print("  ✅ 提取成功，存入缓存区。\n")
+            print("  ✅ 提取成功，存入内存缓存区。")
+            
+            # --- 新增：保存原始逐字稿到单独文件夹 ---
+            safe_title = sanitize_filename(ep_title)
+            transcript_filename = f"{podcast_name}-{safe_title}-{today_str_compact}.md"
+            transcript_filepath = os.path.join(TRANSCRIPTS_DIR, transcript_filename)
+            
+            with open(transcript_filepath, 'w', encoding='utf-8') as f:
+                f.write(f"# 【{podcast_name}】{ep_title}\n")
+                f.write(f"**抓取日期：** {today_str}\n\n---\n\n")
+                f.write(text_content)
+            print(f"  💾 原始逐字稿已归档: {transcript_filename}\n")
             
         except Exception as e:
             print(f"  ❌ 出错: {e}\n")
@@ -184,23 +218,19 @@ if __name__ == "__main__":
         os.remove(TEMP_AUDIO_FILE)
         
     if new_episodes_data:
-        # 检查今天是否已经存在报告
         existing_md_content = ""
         if os.path.exists(md_filename):
             with open(md_filename, 'r', encoding='utf-8') as f:
                 existing_md_content = f.read()
                 
-        # 生成或更新报告
-        final_report = generate_or_update_report(new_episodes_data, existing_md_content, today_str)
+        final_report = generate_or_update_report(new_episodes_data, existing_md_content, today_str, today_str_compact)
         
-        # 覆盖写入更新后的完整内容
         if not existing_md_content:
-            final_report = f"# 🌅 {today_str} 海外宏观与A股映射简报\n\n{final_report}"
+            final_report = f"# 🌅 {today_str} 海外宏观与市场博弈晨报\n\n{final_report}"
             
         with open(md_filename, 'w', encoding='utf-8') as f:
             f.write(final_report)
             
-        # 更新账本
         for podcast_name, data in new_episodes_data.items():
             history[podcast_name] = data['id']
         save_history(history)
