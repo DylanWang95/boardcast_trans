@@ -21,7 +21,7 @@ deepseek_client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url="https://api.deepsee
 RSS_FEEDS = {
     "GS The Markets": "https://feeds.megaphone.fm/GLD9322922848",
     "WSJ What's News": "https://video-api.wsj.com/podcast/rss/wsj/whats-news",
-    "Bloomberg Daybreak": "https://feeds.megaphone.fm/bloombergdaybreakus",
+    "Bloomberg Daybreak": "https://www.omnycontent.com/d/playlist/e73c998e-6e60-432f-8610-ae210140c5b1/d15648c4-cee0-4e99-a5ca-af80014d921d/65ce2954-d8a8-4c66-9f42-af80014d923e/podcast.rss",
     "Marketplace Morning": "https://feeds.publicradio.org/public_feeds/marketplace-morning-report/itunes/rss",
     "NPR Up First":"https://feeds.npr.org/510318/podcast.xml"
 }
@@ -104,7 +104,7 @@ def synthesize_transcripts(all_transcripts_dict, date_str):
 
     # 二、各频道内容速览
     用无序列表的方式，列出今天抓取的所有节目，并用 20 字左右的极简语言概括该期节目的核心内容。格式如下：
-    * **【播客名称】《节目名称》**：核心点1；核心点2。
+    * **【播客名称】《节目名称》时间(格式20260310)。**：核心点1；核心点2。
 
     # 三、A股及大类资产映射推演
     基于上述所有信息的“共振”，运用宏观对冲与量化思维，推演其对中国A股市场及大宗商品的潜在影响(100字以内）：
