@@ -2,3 +2,5 @@ requests
 feedparser
 groq
 openai
+google-genai
+pydub
