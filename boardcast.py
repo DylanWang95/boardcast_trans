@@ -162,7 +162,18 @@ def generate_or_update_report(new_transcripts_dict, existing_md_content, today_s
         ],
         temperature=0.3
     )
-    return response.choices[0].message.content
+    final_report = response.choices[0].message.content
+    # --- 新增：强力清洗大模型偶尔生成的 ```markdown 外壳 ---
+    final_report = final_report.strip()
+    if final_report.startswith("```markdown"):
+        final_report = final_report[11:].strip()
+    elif final_report.startswith("```"):
+        final_report = final_report[3:].strip()
+        
+    if final_report.endswith("```"):
+        final_report = final_report[:-3].strip()
+        
+    return final_report
 
 # ==========================================
 # 4. 主流程控制
