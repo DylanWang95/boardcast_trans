@@ -6,6 +6,7 @@ import feedparser
 from groq import Groq
 from openai import OpenAI
 from datetime import datetime
+from pydub import AudioSegment
 
 # ==========================================
 # 1. 初始化与配置
@@ -83,15 +84,47 @@ def get_latest_audio(rss_url, save_path="temp_audio.mp3"):
     return title, save_path, episode_id
 
 def transcribe_audio(audio_path):
-    print("  🎙️ 正在调用 Groq 进行极速转录...")
-    with open(audio_path, "rb") as file:
-        transcription = groq_client.audio.transcriptions.create(
-          file=(audio_path, file.read()),
-          model="whisper-large-v3",
-          response_format="text",
-          language="en" 
-        )
-    return transcription
+    file_size_mb = os.path.getsize(audio_path) / (1024 * 1024)
+
+    if file_size_mb <= 24.5:
+        print(f"音频大小({file_size_mb:.1f}MB)，正在调用 Groq 进行极速转录...")
+        with open(audio_path, "rb") as file:
+            return groq_client.audio.transcriptions.create(
+              file=(audio_path, file.read()),
+              model="whisper-large-v3",
+              response_format="text",
+              language="en" 
+            )
+    # 如果文件超过 24MB，启动切片机制
+    print(f"音频大小({file_size_mb:.1f}MB)！正在将音频分段...")
+    audio = AudioSegment.from_file(audio_path)
+    
+    # 设定每段长度为 15 分钟 (15 * 60 * 1000 毫秒)，确保每段绝对不会超过 25MB
+    chunk_length_ms = 15 * 60 * 1000 
+    chunks = [audio[i:i+chunk_length_ms] for i in range(0, len(audio), chunk_length_ms)]
+    
+    full_transcript = ""
+    for idx, chunk in enumerate(chunks):
+        print(f"    - 正在转录第 {idx+1}/{len(chunks)} 段...")
+        chunk_path = f"temp_chunk_{idx}.mp3"
+        # 导出临时分段文件
+        chunk.export(chunk_path, format="mp3")
+        
+        # 逐段发送给 Groq
+        with open(chunk_path, "rb") as file:
+            transcription = groq_client.audio.transcriptions.create(
+              file=(chunk_path, file.read()),
+              model="whisper-large-v3",
+              response_format="text",
+              language="en" 
+            )
+            # 将每一段的文本拼接到最终的长文本中
+            full_transcript += transcription + " "
+            
+        # 阅后即焚，清理临时切片
+        os.remove(chunk_path)
+        
+    return full_transcript        
 
 # ==========================================
 # 3. 大模型分析 (区分首次生成与增量更新)
@@ -124,6 +157,7 @@ def generate_or_update_report(new_transcripts_dict, existing_md_content, today_s
         2. **主线更新 (最重要)**：在【一、关注要点】中，如果新播客对早上的某个主题提供了新的证据、相反的观点或更深度的监管博弈视角，请在原有的“共识与分歧”下方，另起一行补充对比分析，并在此段开头打上 `[🌙 晚间视角追加]` 标签。如果新播客带来了一个全新的重大主题，请作为一个全新的【主题关键词】追加到第一部分末尾。
         3. **深度提炼追加**：在【二、各播客内容摘要】中，按原定严谨格式，新增晚间播客的深度梳理，并在播客名称旁打上 `[🌙 晚间更新]` 标签。
         4. **推演迭代**：在【三、市场分析】中，结合晚间新获取的量化数据或逻辑，补充 1-2 条新的市场观点，并在段首打上 `[🌙 晚间推演更新]`。如果没有新的增量信息，不必强行补充。
+        5.请直接输出正文内容，开头和结尾绝对不要使用 ```markdown 这种代码块标记
         """
     else:
         print("  📝 今日首次运行，启动【全局生成】模式...")
