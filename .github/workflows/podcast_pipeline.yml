@@ -35,8 +35,8 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |
-          python boardcast.py
-          
+          python boardcast.py               
+      
       - name: Commit and Push generated files
         run: |
           git config --global user.name "github-actions[bot]"
@@ -49,15 +49,20 @@ jobs:
             git commit -m "Auto-generate podcast report & update history"
             git push
             echo "新报告和历史记录已成功推送到仓库！"
-            
-            # 👇 --- 新增功能：自动发布到 GitHub Issues 推送手机 ---
-            # 找到 Daily_Reports 文件夹下最新生成的那份 Markdown 文件
+
             LATEST_REPORT=$(ls -t Daily_Reports/*.md | head -n 1)
-            # 提取文件名作为 Issue 的标题 (去掉 .md 后缀)
             REPORT_TITLE=$(basename "$LATEST_REPORT" .md)
+
+            # --- 新增：强制 @ 你的 GitHub ID 并拼接到正文头部 ---
+            echo "@DylanWang95 您的最新晨报已更新！" > temp_issue_body.md
+            echo "" >> temp_issue_body.md
+            cat "$LATEST_REPORT" >> temp_issue_body.md
             
             # 使用 GitHub 官方工具创建 Issue
             gh issue create --title "🔔 $REPORT_TITLE" --body-file "$LATEST_REPORT"
+            
+            rm temp_issue_body.md
+          
           fi
         # 必须提供自动生成的 GITHUB_TOKEN，赋予机器人创建 Issue 的权限
         env:
