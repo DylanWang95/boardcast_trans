@@ -15,7 +15,11 @@ on:
 jobs:
   run-analysis:
     runs-on: ubuntu-latest
-    
+
+    permissions:
+      contents: write  # 允许机器人推送(push)代码文件
+      issues: write    # 允许机器人创建 Issue 提醒你
+      
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
