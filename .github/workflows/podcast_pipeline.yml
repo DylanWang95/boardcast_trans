@@ -39,6 +39,10 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |
           python boardcast.py               
+
+      - name: Run Timeline Generator Script
+        run: |
+          python generate_timeline.py
       
       - name: Commit and Push generated files
         run: |
@@ -61,8 +65,8 @@ jobs:
             echo "" >> temp_issue_body.md
             cat "$LATEST_REPORT" >> temp_issue_body.md
             
-            # 使用 GitHub 官方工具创建 Issue
-            gh issue create --title "🔔 $REPORT_TITLE" --body-file "$LATEST_REPORT"
+            # 使用 GitHub 官方工具创建 Issue            
+            gh issue create --title "🔔 $REPORT_TITLE" --body-file temp_issue_body.md
             
             rm temp_issue_body.md
           
